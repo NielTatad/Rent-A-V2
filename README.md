@@ -14,4 +14,4 @@ This is a test repository where I create AWS services—especially EC2 instances
 
 ---
 
-**Note:** This repository is for learning and testing purposes only. 
+**Note:** This repository is for learning and testing purposes only.
