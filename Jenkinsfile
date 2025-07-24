@@ -23,5 +23,16 @@ pipeline {
         sh 'terraform validate'
       }
     }
+    stage('Docker Build and Push') {
+      steps {
+        script {
+          sh 'docker build -t kingdevops/rent-a-v2-terraform:latest .'
+          withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+            sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+            sh 'docker push kingdevops/rent-a-v2-terraform:latest'
+          }
+        }
+      }
+    }
   }
 } 
