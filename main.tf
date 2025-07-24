@@ -16,5 +16,4 @@ data "aws_ami" "ubuntu" {
 module "ec2" {
   source        = "./modules/ec2"
   ami_id        = data.aws_ami.ubuntu.id
-  instance_name = "ubuntu-free-tier-instance"
 } 
