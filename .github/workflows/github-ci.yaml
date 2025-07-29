@@ -1,0 +1,131 @@
+name: Git Conventions Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main, develop]
+
+jobs:
+  check-conventions:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for commit checking
+    
+    - name: Check PR Title Format
+      if: github.event_name == 'pull_request'
+      run: |
+        PR_TITLE="${{ github.event.pull_request.title }}"
+        VALID_PREFIXES="^(feat|fix|hotfix|docs|style|refactor|test|chore)(\(.+\))?:"
+        
+        if [[ ! $PR_TITLE =~ $VALID_PREFIXES ]]; then
+          echo "❌ Invalid PR title format: $PR_TITLE"
+          echo "PR title must follow the format: <type>: <description>"
+          echo "Valid types: feat, fix, hotfix, docs, style, refactor, test, chore"
+          echo "Examples:"
+          echo "  feat: add user authentication"
+          echo "  fix(auth): resolve login issue"
+          echo "  docs: update README"
+          echo "📖 For more details, see: https://avensetech.atlassian.net/wiki/spaces/~712020adc8b0be09634ce8855c6da7f4845c21/pages/202473474/Development+Stategy"
+          exit 1
+        else
+          echo "✅ PR title format is valid: $PR_TITLE"
+        fi
+    
+    - name: Check Commit Messages
+      run: |
+        # Get commits to check
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          # For PRs, check commits in the PR
+          COMMITS=$(git log --pretty=format:"%H %s" ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+        else
+          # For pushes, check the latest commit
+          COMMITS=$(git log --pretty=format:"%H %s" -1)
+        fi
+        
+        VALID_PREFIXES="^(feat|fix|hotfix|docs|style|refactor|test|chore)(\(.+\))?:"
+        INVALID_COMMITS=""
+        
+        while IFS= read -r commit; do
+          if [ -n "$commit" ]; then
+            COMMIT_HASH=$(echo "$commit" | cut -d' ' -f1)
+            COMMIT_MSG=$(echo "$commit" | cut -d' ' -f2-)
+            
+            if [[ ! $COMMIT_MSG =~ $VALID_PREFIXES ]]; then
+              INVALID_COMMITS="$INVALID_COMMITS\n- $COMMIT_HASH: $COMMIT_MSG"
+            fi
+          fi
+        done <<< "$COMMITS"
+        
+        if [ -n "$INVALID_COMMITS" ]; then
+          echo "❌ Found commits with invalid format:"
+          echo -e "$INVALID_COMMITS"
+          echo ""
+          echo "Commit messages must follow the format: <type>: <description>"
+          echo "Valid types: feat, fix, hotfix, docs, style, refactor, test, chore"
+          echo "Examples:"
+          echo "  feat: add user authentication"
+          echo "  fix(auth): resolve login issue"
+          echo "  docs: update README"
+          echo "📖 For more details, see: https://avensetech.atlassian.net/wiki/spaces/~712020adc8b0be09634ce8855c6da7f4845c21/pages/202473474/Development+Stategy"
+          exit 1
+        else
+          echo "✅ All commit messages follow the required format"
+        fi
+    
+    - name: Check Branch Name Format
+      if: github.event_name == 'pull_request'
+      run: |
+        BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+        VALID_BRANCH_PREFIXES="^(feat|fix|hotfix|docs|style|refactor|test|chore)/"
+        
+        if [[ ! $BRANCH_NAME =~ $VALID_BRANCH_PREFIXES ]] && [[ $BRANCH_NAME != "main" ]] && [[ $BRANCH_NAME != "develop" ]]; then
+          echo "❌ Invalid branch name format: $BRANCH_NAME"
+          echo "Branch names must follow the format: <type>/<description>"
+          echo "Valid types: feat, fix, hotfix, docs, style, refactor, test, chore"
+          echo "Examples:"
+          echo "  feat/user-authentication"
+          echo "  fix/login-bug"
+          echo "  docs/api-documentation"
+          echo "📖 For more details, see: https://avensetech.atlassian.net/wiki/spaces/~712020adc8b0be09634ce8855c6da7f4845c21/pages/202473474/Development+Stategy"
+          exit 1
+        else
+          echo "✅ Branch name format is valid: $BRANCH_NAME"
+        fi
+    
+    - name: Comment on PR
+      if: github.event_name == 'pull_request' && failure()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## ❌ Git Conventions Check Failed
+
+          This PR does not follow the required Git conventions. Please ensure:
+
+          ### Branch Naming
+          - Format: \`<type>/<description>\`
+          - Valid types: \`feat\`, \`fix\`, \`hotfix\`, \`docs\`, \`style\`, \`refactor\`, \`test\`, \`chore\`
+          - Example: \`feat/user-authentication\`
+
+          ### Commit Messages
+          - Format: \`<type>: <description>\`
+          - Valid types: \`feat\`, \`fix\`, \`hotfix\`, \`docs\`, \`style\`, \`refactor\`, \`test\`, \`chore\`
+          - Example: \`feat: add user authentication\`
+
+          ### PR Title
+          - Format: \`<type>: <description>\`
+          - Valid types: \`feat\`, \`fix\`, \`hotfix\`, \`docs\`, \`style\`, \`refactor\`, \`test\`, \`chore\`
+          - Example: \`feat: add user authentication\`
+
+          📖 **For detailed guidelines, see:** [Development Strategy](https://avensetech.atlassian.net/wiki/spaces/~712020adc8b0be09634ce8855c6da7f4845c21/pages/202473474/Development+Stategy)
+
+          Please update your branch name, commit messages, and PR title to follow these conventions.`
+          }) 

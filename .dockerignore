@@ -1,0 +1,9 @@
+.git
+.terraform
+*.tfstate
+*.tfstate.backup
+*.log
+*.md
+.gitignore
+.dockerignore
+.env
